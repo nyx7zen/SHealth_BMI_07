@@ -218,3 +218,15 @@ TEST_F(SHealthBMITest, CalculateBmi_HeaderOnly_ReturnsZero) {
     SHealth shealth;
     EXPECT_EQ(shealth.calculateBmi(tempCsvPath_), 0);
 }
+
+TEST_F(SHealthBMITest, CalculateBmi_EmptyLine_StopsOrSkips) {
+    // Given: 유효 행 1건 → 빈 줄 → 유효 행 1건 (loadRecordsFromCsv: tokens.empty() 시 break)
+    writeCsv("1,25,70,170\n\n2,35,80,180\n");
+    SHealth shealth;
+    // When
+    const int count = shealth.calculateBmi(tempCsvPath_);
+    // Then: 빈 줄에서 읽기 중단, 이후 행 무시 → count=1, 20대 과체중 100%
+    EXPECT_EQ(count, 1);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(30, 300), 0.0, 0.01);
+}
