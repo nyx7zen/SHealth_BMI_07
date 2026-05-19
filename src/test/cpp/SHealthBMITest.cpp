@@ -121,6 +121,37 @@ TEST_F(SHealthBMITest, ImputeWeight_AllZeroInBand_NoDivisionByZero) {
     EXPECT_NEAR(sum, 100.0, 0.01);
 }
 
+TEST_F(SHealthBMITest, ImputeWeight_ZeroOutsideBand_Unchanged) {
+    // Given: 20대 60kg 1명, 30대 0kg 1명(동 연령대 유효 체중 없음) → 30대는 20대 평균 미적용
+    writeCsv("1,25,60,170\n2,35,0,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    // Then: 20대는 60kg 기준 정상(200) 100%, 30대는 보정 없이 BMI=0 → 저체중 100%
+    EXPECT_NEAR(shealth.getBmiRatio(20, 200), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(30, 100), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, ImputeWeight_TwoBands_IndependentAverages) {
+    // Given: 20대 50kg+0kg(→50kg), 30대 80kg+0kg(→80kg) — 연령대별 독립 평균 보정
+    writeCsv("1,25,50,170\n2,27,0,170\n3,35,80,170\n4,37,0,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    // Then: 50kg→저체중(100), 80kg→비만(400), 각 연령대 100%
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(30, 400), 100.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, ImputeWeight_NoZero_UnchangedWeights) {
+    // Given: 20대 모두 양수 체중 — 보정 없이 원값 유지
+    writeCsv("1,25,50,170\n2,26,70,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    // Then: 저체중·과체중 각 50%
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 50.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 50.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, GetBmiRatio_FourTypes_SumNear100) {
     // Given: 20대 4분류 각 1명
     writeCsv("1,25,50,170\n2,26,60,170\n3,27,70,170\n4,28,90,170\n");
