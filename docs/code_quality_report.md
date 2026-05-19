@@ -5,7 +5,7 @@
 | 프로젝트 | SHealth_BMI_07 |
 | 작성일 | 2026-05-19 |
 | 분석 대상 | `SHealth::calculateBmi()`, `getBmiRatio()`, 연관 private 멤버·`split()` |
-| 근거 | `SHealth.cpp` / `SHealth.h`, `README.md`, `tasks/0.setting.md`, `Report/0.SHealth_BMI_코드분석보고서.md` |
+| 근거 | `SHealth.cpp` / `SHealth.h`, `README.md`, `tasks/0.setting.md`, `Report/0.SHealth_BMI_코드분석.md` |
 
 ---
 
@@ -142,7 +142,7 @@ BMI 분류(L65–73)는 README 4구간과 **거의** 맞으나, 비만만 `> 25`
 
 README 4단계(height=0 보정, 정상 BMI 목록, 전체 범주 비율)는 기존 메서드에 코드를 더 쌓기보다 **새 public 메서드**와 내부 컴포넌트로 추가해 OCP를 지킨다. `shealth.dat` 포맷은 변경하지 않는다. premature abstraction(과도한 템플릿·variant 남용)은 피하고, C++17의 `enum class`·`std::vector`·`constexpr` 정도로 단계적 현대화한다.
 
-분석 단계에서는 **보고서 산출만** 수행하며, 실제 소스 수정은 테스트 Green 이후 별도 작업으로 진행한다. `Report/0.SHealth_BMI_코드분석보고서.md`의 Baseline 스멜·스펙 불일치 진단과 본 보고서를 Before & After 비교 기준으로 사용할 수 있다.
+분석 단계에서는 **보고서 산출만** 수행하며, 실제 소스 수정은 테스트 Green 이후 별도 작업으로 진행한다. `Report/0.SHealth_BMI_코드분석.md`의 Baseline 스멜·스펙 불일치 진단과 본 보고서를 Before & After 비교 기준으로 사용할 수 있다.
 
 ---
 
