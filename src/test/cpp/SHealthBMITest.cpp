@@ -40,6 +40,30 @@ TEST_F(SHealthBMITest, CalculateBmi_MultipleRows_ReturnsCorrectCount) {
     EXPECT_EQ(count, 3);
 }
 
+TEST_F(SHealthBMITest, CalculateBmi_StandardWeightHeight_ReturnsExpectedBmi) {
+    // Given: 70kg, 170cm → BMI = 70 / (1.7²) ≈ 24.2215 (과체중)
+    writeCsv("1,25,70,170\n");
+    SHealth shealth;
+    // When
+    const int count = shealth.calculateBmi(tempCsvPath_);
+    // Then: 처리 1건, BMI≈24.22 → 20대 과체중(type 300) 100%
+    EXPECT_EQ(count, 1);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 400), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, CalculateBmi_HeightInMeters_ConvertsFromCm) {
+    // Given: 80kg, 180cm → BMI = 80 / (1.8²) ≈ 24.69 (cm→m 변환 필수)
+    writeCsv("1,25,80,180\n");
+    SHealth shealth;
+    // When
+    const int count = shealth.calculateBmi(tempCsvPath_);
+    // Then: cm를 m로 변환하지 않으면 BMI≈0 → 저체중; 정상 변환 시 과체중
+    EXPECT_EQ(count, 1);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 0.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, ClassifyBmi_At25_IsObesity) {
     // Given: BMI = 72.25 / (1.7^2) = 25.0, 20대
     writeCsv("1,25,72.25,170\n");
