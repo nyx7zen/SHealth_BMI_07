@@ -99,6 +99,35 @@ TEST_F(SHealthBMITest, ClassifyBmi_JustBelow25_IsOverweight) {
     EXPECT_NEAR(shealth.getBmiRatio(20, 400), 0.0, 0.01);
 }
 
+TEST_F(SHealthBMITest, ClassifyBmi_JustAbove18_5_IsNormal) {
+    // Given: BMI = 18.51 (> 18.5, 저체중 경계 직후) — 53.51kg / 170cm
+    writeCsv("1,25,53.51,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    // Then: 정상(type 200) 100%, 저체중(100) 0%
+    EXPECT_NEAR(shealth.getBmiRatio(20, 200), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, ClassifyBmi_Between18_5And23_IsNormal) {
+    // Given: BMI = 21.0 (18.5 < BMI < 23 정상 구간) — 60.69kg / 170cm
+    writeCsv("1,25,60.69,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 200), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, ClassifyBmi_Age30_In30Band) {
+    // Given: 30세 BMI=25(비만) — 30대 [30,40) 집계
+    writeCsv("1,30,72.25,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    // Then: 30대 비만(400) 100%, 20대는 0%
+    EXPECT_NEAR(shealth.getBmiRatio(30, 400), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 400), 0.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, ImputeWeight_OneZeroInAgeBand_UsesPeerAverage) {
     // Given: 20대 60kg 1명, 0kg 1명 → 평균 60kg 보정
     writeCsv("1,25,60,170\n2,27,0,165\n");
