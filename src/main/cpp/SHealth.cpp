@@ -3,137 +3,168 @@
 #include <iostream>
 #include <sstream>
 
-int SHealth::calculateBmi(const std::string& filename) {
-    count = 0;
+SHealth::BmiCategory SHealth::classifyBmi(double bmi) const {
+    if (bmi <= kBmiUnderweightMax) {
+        return BmiCategory::Underweight;
+    }
+    if (bmi < kBmiNormalMax) {
+        return BmiCategory::Normal;
+    }
+    if (bmi < kBmiOverweightMax) {
+        return BmiCategory::Overweight;
+    }
+    return BmiCategory::Obesity;
+}
+
+bool SHealth::isInAgeBand(int age, AgeBand band) {
+    const int bandStart = static_cast<int>(band);
+    return age >= bandStart && age < bandStart + kAgeBandWidth;
+}
+
+int SHealth::ageBandToIndex(AgeBand band) {
+    return (static_cast<int>(band) - kMinAgeBandStart) / kAgeBandWidth;
+}
+
+int SHealth::ageClassToIndex(int ageClass) {
+    if (ageClass < kMinAgeBandStart || ageClass > kMaxAgeBandStart) {
+        return -1;
+    }
+    if ((ageClass - kMinAgeBandStart) % kAgeBandWidth != 0) {
+        return -1;
+    }
+    return ageBandToIndex(static_cast<AgeBand>(ageClass));
+}
+
+int SHealth::typeCodeToCategoryIndex(int type) {
+    switch (type) {
+        case kTypeUnderweight:
+            return 0;
+        case kTypeNormal:
+            return 1;
+        case kTypeOverweight:
+            return 2;
+        case kTypeObesity:
+            return 3;
+        default:
+            return -1;
+    }
+}
+
+void SHealth::forEachAgeBand(const std::function<void(AgeBand)>& fn) {
+    for (int start = kMinAgeBandStart; start <= kMaxAgeBandStart; start += kAgeBandWidth) {
+        fn(static_cast<AgeBand>(start));
+    }
+}
+
+double SHealth::computeBmi(double weightKg, double heightCm) const {
+    const double heightM = heightCm / kCmPerMeter;
+    return weightKg / (heightM * heightM);
+}
+
+void SHealth::loadRecordsFromCsv(const std::string& filename) {
+    recordCount_ = 0;
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Failed to open file: " << filename << std::endl;
-        return 0;
+        return;
     }
 
     std::string line;
-    std::getline(file, line); // 첫번째 줄 읽기 (헤더)
+    std::getline(file, line);
     while (std::getline(file, line)) {
-        std::vector<std::string> tokens = split(line, ',');
+        const std::vector<std::string> tokens = split(line, kCsvDelimiter);
         if (tokens.empty()) {
             break;
         }
-        ages[count] = std::stoi(tokens[1]);
-        weights[count] = std::stod(tokens[2]);
-        heights[count] = std::stod(tokens[3]);
-        count++;
+        if (recordCount_ >= static_cast<int>(kMaxRecordCount)) {
+            break;
+        }
+        ages_[recordCount_] = std::stoi(tokens[1]);
+        weights_[recordCount_] = std::stod(tokens[2]);
+        heights_[recordCount_] = std::stod(tokens[3]);
+        recordCount_++;
     }
-    file.close();
+}
 
-    // 데이터 수집 중 누락된 체중에 나이대의 평균 체중을 적용
-    for (int a = 20; a <= 70; a += 10) {
-        double sum = 0;
-        int ageCount = 0;
-        for (int i = 0; i < count; i++) {
-            if (ages[i] >= a && ages[i] < a + 10) {
-                if (weights[i] == 0.0) {
-                    continue;
-                }
-                sum += weights[i];
-                ageCount++;
-            }
+void SHealth::imputeMissingWeightsForBand(AgeBand band) {
+    double weightSum = 0.0;
+    int validWeightCount = 0;
+    for (int i = 0; i < recordCount_; i++) {
+        if (!isInAgeBand(ages_[i], band)) {
+            continue;
         }
-        for (int i = 0; i < count; i++) {
-            if (ages[i] >= a && ages[i] < a + 10) {
-                if (weights[i] == 0.0) {
-                    weights[i] = sum / ageCount;
-                }
-            }
+        if (weights_[i] == kMissingWeight) {
+            continue;
         }
+        weightSum += weights_[i];
+        validWeightCount++;
+    }
+    if (validWeightCount == 0) {
+        return;
+    }
+    const double averageWeight = weightSum / validWeightCount;
+    for (int i = 0; i < recordCount_; i++) {
+        if (isInAgeBand(ages_[i], band) && weights_[i] == kMissingWeight) {
+            weights_[i] = averageWeight;
+        }
+    }
+}
+
+void SHealth::imputeMissingWeightsByAgeBand() {
+    forEachAgeBand([this](AgeBand band) { imputeMissingWeightsForBand(band); });
+}
+
+void SHealth::computeAllBmis() {
+    for (int i = 0; i < recordCount_; i++) {
+        bmis_[i] = computeBmi(weights_[i], heights_[i]);
+    }
+}
+
+void SHealth::aggregateRatiosForBand(AgeBand band) {
+    std::array<int, kBmiCategoryCount> categoryCounts{};
+    int memberCount = 0;
+
+    for (int i = 0; i < recordCount_; i++) {
+        if (!isInAgeBand(ages_[i], band)) {
+            continue;
+        }
+        memberCount++;
+        const int categoryIndex = static_cast<int>(classifyBmi(bmis_[i]));
+        categoryCounts[categoryIndex]++;
     }
 
-    // BMI 계산하기
-    for (int i = 0; i < count; i++) {
-        bmis[i] = weights[i] / ((heights[i] / 100.0) * (heights[i] / 100.0));
+    const int bandIndex = ageBandToIndex(band);
+    if (memberCount == 0) {
+        bmiRatios_[bandIndex] = {};
+        return;
     }
 
-    // 나이대의 BMI기준 저체중, 정상체중, 과체중, 비만 비율 계산
-    for (int a = 20; a <= 70; a += 10) {
-        int underweight = 0;
-        int normalweight = 0;
-        int overweight = 0;
-        int obesity = 0;
-        int sum = 0;
-        for (int i = 0; i < count; i++) {
-            if (ages[i] >= a && ages[i] < a + 10) {
-                sum++;
-                if (bmis[i] <= 18.5) {
-                    underweight++;
-                } else if (bmis[i] > 18.5 && bmis[i] < 23) {
-                    normalweight++;
-                } else if (bmis[i] >= 23 && bmis[i] < 25) {
-                    overweight++;
-                } else if (bmis[i] > 25) {
-                    obesity++;
-                }
-            }
-        }
-        if (a == 20) {
-            underweight20 = (double)underweight * 100 / sum;
-            normalweight20 = (double)normalweight * 100 / sum;
-            overweight20 = (double)overweight * 100 / sum;
-            obesity20 = (double)obesity * 100 / sum;
-        } else if (a == 30) {
-            underweight30 = (double)underweight * 100 / sum;
-            normalweight30 = (double)normalweight * 100 / sum;
-            overweight30 = (double)overweight * 100 / sum;
-            obesity30 = (double)obesity * 100 / sum;
-        } else if (a == 40) {
-            underweight40 = (double)underweight * 100 / sum;
-            normalweight40 = (double)normalweight * 100 / sum;
-            overweight40 = (double)overweight * 100 / sum;
-            obesity40 = (double)obesity * 100 / sum;
-        } else if (a == 50) {
-            underweight50 = (double)underweight * 100 / sum;
-            normalweight50 = (double)normalweight * 100 / sum;
-            overweight50 = (double)overweight * 100 / sum;
-            obesity50 = (double)obesity * 100 / sum;
-        } else if (a == 60) {
-            underweight60 = (double)underweight * 100 / sum;
-            normalweight60 = (double)normalweight * 100 / sum;
-            overweight60 = (double)overweight * 100 / sum;
-            obesity60 = (double)obesity * 100 / sum;
-        } else if (a == 70) {
-            underweight70 = (double)underweight * 100 / sum;
-            normalweight70 = (double)normalweight * 100 / sum;
-            overweight70 = (double)overweight * 100 / sum;
-            obesity70 = (double)obesity * 100 / sum;
-        }
+    for (int categoryIndex = 0; categoryIndex < kBmiCategoryCount; categoryIndex++) {
+        bmiRatios_[bandIndex][categoryIndex] =
+            static_cast<double>(categoryCounts[categoryIndex]) * kPercentFactor / memberCount;
     }
-    return count;
+}
+
+void SHealth::aggregateRatiosByAgeBand() {
+    forEachAgeBand([this](AgeBand band) { aggregateRatiosForBand(band); });
+}
+
+int SHealth::calculateBmi(const std::string& filename) {
+    bmiRatios_ = {};
+    loadRecordsFromCsv(filename);
+    imputeMissingWeightsByAgeBand();
+    computeAllBmis();
+    aggregateRatiosByAgeBand();
+    return recordCount_;
 }
 
 double SHealth::getBmiRatio(int ageClass, int type) {
-    if (ageClass == 20 && type == 100) return underweight20;
-    else if (ageClass == 20 && type == 200) return normalweight20;
-    else if (ageClass == 20 && type == 300) return overweight20;
-    else if (ageClass == 20 && type == 400) return obesity20;
-    else if (ageClass == 30 && type == 100) return underweight30;
-    else if (ageClass == 30 && type == 200) return normalweight30;
-    else if (ageClass == 30 && type == 300) return overweight30;
-    else if (ageClass == 30 && type == 400) return obesity30;
-    else if (ageClass == 40 && type == 100) return underweight40;
-    else if (ageClass == 40 && type == 200) return normalweight40;
-    else if (ageClass == 40 && type == 300) return overweight40;
-    else if (ageClass == 40 && type == 400) return obesity40;
-    else if (ageClass == 50 && type == 100) return underweight50;
-    else if (ageClass == 50 && type == 200) return normalweight50;
-    else if (ageClass == 50 && type == 300) return overweight50;
-    else if (ageClass == 50 && type == 400) return obesity50;
-    else if (ageClass == 60 && type == 100) return underweight60;
-    else if (ageClass == 60 && type == 200) return normalweight60;
-    else if (ageClass == 60 && type == 300) return overweight60;
-    else if (ageClass == 60 && type == 400) return obesity60;
-    else if (ageClass == 70 && type == 100) return underweight70;
-    else if (ageClass == 70 && type == 200) return normalweight70;
-    else if (ageClass == 70 && type == 300) return overweight70;
-    else if (ageClass == 70 && type == 400) return obesity70;
-    return 0.0;
+    const int bandIndex = ageClassToIndex(ageClass);
+    const int categoryIndex = typeCodeToCategoryIndex(type);
+    if (bandIndex < 0 || categoryIndex < 0) {
+        return 0.0;
+    }
+    return bmiRatios_[bandIndex][categoryIndex];
 }
 
 std::vector<std::string> SHealth::split(const std::string& line, char delimiter) {
