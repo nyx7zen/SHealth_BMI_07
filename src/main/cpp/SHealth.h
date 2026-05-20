@@ -10,6 +10,8 @@ public:
     int calculateBmi(const std::string& filename);
     /** 연령대(20|30|…|70)별 BMI 4분류(100~400) 비율(%) — 집계 테이블 `bmiRatios_` 단일 소스 조회 */
     double getBmiRatio(int ageClass, int type);
+    /** 18.5 < BMI < 23 정상 범위 사용자 id 목록 (`calculateBmi` 실행 후 조회) */
+    std::vector<int> getNormalBmiUserIds() const;
 
 private:
     static constexpr double kBmiUnderweightMax = 18.5;
@@ -42,6 +44,7 @@ private:
     };
 
     int recordCount_ = 0;
+    int ids_[kMaxRecordCount];
     int ages_[kMaxRecordCount];
     double heights_[kMaxRecordCount];
     double weights_[kMaxRecordCount];

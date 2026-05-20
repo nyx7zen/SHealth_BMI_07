@@ -79,6 +79,7 @@ void SHealth::loadRecordsFromCsv(const std::string& filename) {
         if (recordCount_ >= static_cast<int>(kMaxRecordCount)) {
             break;
         }
+        ids_[recordCount_] = std::stoi(tokens[0]);
         ages_[recordCount_] = std::stoi(tokens[1]);
         weights_[recordCount_] = std::stod(tokens[2]);
         heights_[recordCount_] = std::stod(tokens[3]);
@@ -194,6 +195,16 @@ double SHealth::getBmiRatio(int ageClass, int type) {
         return 0.0;
     }
     return bmiRatios_[bandIndex][categoryIndex];
+}
+
+std::vector<int> SHealth::getNormalBmiUserIds() const {
+    std::vector<int> normalIds;
+    for (int i = 0; i < recordCount_; i++) {
+        if (classifyBmi(bmis_[i]) == BmiCategory::Normal) {
+            normalIds.push_back(ids_[i]);
+        }
+    }
+    return normalIds;
 }
 
 std::vector<std::string> SHealth::split(const std::string& line, char delimiter) {

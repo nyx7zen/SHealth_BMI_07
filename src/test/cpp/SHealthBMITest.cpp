@@ -201,6 +201,16 @@ TEST_F(SHealthBMITest, CalculateBmi_HeightZeroBeforeImpute_DivisionRisk) {
     EXPECT_NEAR(shealth.getBmiRatio(20, 200), 50.0, 0.01);
 }
 
+TEST_F(SHealthBMITest, GetNormalBmiUsers_Mixed_ReturnsOnlyNormalIds) {
+    // Given: 4분류 혼합 — id1 저체중, id2 정상, id3 과체중, id4 비만
+    writeCsv("1,25,50,170\n2,26,60,170\n3,27,70,170\n4,28,90,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    const std::vector<int> normalIds = shealth.getNormalBmiUserIds();
+    ASSERT_EQ(normalIds.size(), 1u);
+    EXPECT_EQ(normalIds[0], 2);
+}
+
 TEST_F(SHealthBMITest, GetBmiRatio_20Underweight_MatchesAggregatedPercent) {
     // Given: 20대 2명 모두 저체중 (BMI ≤ 18.5)
     writeCsv("1,25,50,170\n2,26,52,170\n");
