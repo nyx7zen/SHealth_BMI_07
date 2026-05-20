@@ -219,6 +219,24 @@ TEST_F(SHealthBMITest, CalculateBmi_HeaderOnly_ReturnsZero) {
     EXPECT_EQ(shealth.calculateBmi(tempCsvPath_), 0);
 }
 
+TEST_F(SHealthBMITest, Refactor_CalculateBmi_StillPassesIntegration) {
+    // Given: 소량 통합 fixture — 로드·체중/키 보정·BMI·연령대 집계 파이프라인 회귀
+    writeCsv("1,25,50,170\n2,26,60,170\n3,27,70,170\n4,28,90,170\n"
+             "5,35,0,170\n6,37,80,170\n7,25,0,165\n8,27,60,165\n");
+    SHealth shealth;
+    // When
+    const int count = shealth.calculateBmi(tempCsvPath_);
+    // Then: 8건 처리, 20대 4분류 합≈100%, 30대 보정·집계 정상
+    EXPECT_EQ(count, 8);
+    const double sum20 = shealth.getBmiRatio(20, 100) + shealth.getBmiRatio(20, 200) +
+                         shealth.getBmiRatio(20, 300) + shealth.getBmiRatio(20, 400);
+    EXPECT_NEAR(sum20, 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(30, 400), 100.0, 0.01);
+    const double sum30 = shealth.getBmiRatio(30, 100) + shealth.getBmiRatio(30, 200) +
+                         shealth.getBmiRatio(30, 300) + shealth.getBmiRatio(30, 400);
+    EXPECT_NEAR(sum30, 100.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, CalculateBmi_EmptyLine_StopsOrSkips) {
     // Given: 유효 행 1건 → 빈 줄 → 유효 행 1건 (loadRecordsFromCsv: tokens.empty() 시 break)
     writeCsv("1,25,70,170\n\n2,35,80,180\n");

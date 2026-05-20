@@ -17,6 +17,7 @@ private:
     static constexpr double kCmPerMeter = 100.0;
     static constexpr double kPercentFactor = 100.0;
     static constexpr double kMissingWeight = 0.0;
+    static constexpr double kMissingHeight = 0.0;
     static constexpr int kAgeBandWidth = 10;
     static constexpr int kMinAgeBandStart = 20;
     static constexpr int kMaxAgeBandStart = 70;
@@ -53,11 +54,13 @@ private:
     static int typeCodeToCategoryIndex(int type);
     void forEachAgeBand(const std::function<void(AgeBand)>& fn);
     void imputeMissingWeightsForBand(AgeBand band);
+    void imputeMissingHeightsForBand(AgeBand band);
     void aggregateRatiosForBand(AgeBand band);
     double computeBmi(double weightKg, double heightCm) const;
 
     void loadRecordsFromCsv(const std::string& filename);
     void imputeMissingWeightsByAgeBand();
+    void imputeMissingHeightsByAgeBand();
     void computeAllBmis();
     void aggregateRatiosByAgeBand();
 
