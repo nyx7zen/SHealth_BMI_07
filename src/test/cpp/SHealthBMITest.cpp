@@ -181,6 +181,15 @@ TEST_F(SHealthBMITest, ImputeWeight_NoZero_UnchangedWeights) {
     EXPECT_NEAR(shealth.getBmiRatio(20, 300), 50.0, 0.01);
 }
 
+TEST_F(SHealthBMITest, GetBmiRatio_20Underweight_MatchesAggregatedPercent) {
+    // Given: 20대 2명 모두 저체중 (BMI ≤ 18.5)
+    writeCsv("1,25,50,170\n2,26,52,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 200), 0.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, GetBmiRatio_FourTypes_SumNear100) {
     // Given: 20대 4분류 각 1명
     writeCsv("1,25,50,170\n2,26,60,170\n3,27,70,170\n4,28,90,170\n");

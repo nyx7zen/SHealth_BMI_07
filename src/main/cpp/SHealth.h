@@ -8,6 +8,7 @@
 class SHealth {
 public:
     int calculateBmi(const std::string& filename);
+    /** 연령대(20|30|…|70)별 BMI 4분류(100~400) 비율(%) — 집계 테이블 `bmiRatios_` 단일 소스 조회 */
     double getBmiRatio(int ageClass, int type);
 
 private:
