@@ -181,6 +181,65 @@ TEST_F(SHealthBMITest, ImputeWeight_NoZero_UnchangedWeights) {
     EXPECT_NEAR(shealth.getBmiRatio(20, 300), 50.0, 0.01);
 }
 
+TEST_F(SHealthBMITest, ImputeHeight_ZeroInBand_UsesAverageHeight) {
+    // Given: 20대 height 0 1건 + 유효 170cm 2건 → 평균 170cm 보정
+    writeCsv("1,25,70,170\n2,26,70,170\n3,27,70,0\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    // Then: 보정 후 3명 모두 BMI≈24.22(70kg/170cm) → 20대 과체중(300) 100%
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, CalculateBmi_HeightZeroBeforeImpute_DivisionRisk) {
+    // Given: height=0 1건 + 동 연령대 유효 키 — 파이프라인에서 height 보정 후 BMI 계산
+    writeCsv("1,25,70,0\n2,26,60,170\n");
+    SHealth shealth;
+    // When / Then: 나눗셈 위험 없이 완료, 20대 과체중·정상 각 50%
+    EXPECT_EQ(shealth.calculateBmi(tempCsvPath_), 2);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 50.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 200), 50.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, GetNormalBmiUsers_Mixed_ReturnsOnlyNormalIds) {
+    // Given: 4분류 혼합 — id1 저체중, id2 정상, id3 과체중, id4 비만
+    writeCsv("1,25,50,170\n2,26,60,170\n3,27,70,170\n4,28,90,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    const std::vector<int> normalIds = shealth.getNormalBmiUserIds();
+    ASSERT_EQ(normalIds.size(), 1u);
+    EXPECT_EQ(normalIds[0], 2);
+}
+
+TEST_F(SHealthBMITest, GetOverallBmiRatio_AllObese_Returns100PercentObesity) {
+    // Given: 연령대 무관 전원 비만 (BMI ≥ 25)
+    writeCsv("1,25,90,170\n2,35,90,170\n3,45,90,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(400), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(100), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, GetOverallBmiRatio_FourTypes_Each25Percent) {
+    // Given: 전체 4분류 각 1명(연령 혼합)
+    writeCsv("1,25,50,170\n2,35,60,170\n3,45,70,170\n4,55,90,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(100), 25.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(200), 25.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(300), 25.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(400), 25.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, GetBmiRatio_20Underweight_MatchesAggregatedPercent) {
+    // Given: 20대 2명 모두 저체중 (BMI ≤ 18.5)
+    writeCsv("1,25,50,170\n2,26,52,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 200), 0.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, GetBmiRatio_FourTypes_SumNear100) {
     // Given: 20대 4분류 각 1명
     writeCsv("1,25,50,170\n2,26,60,170\n3,27,70,170\n4,28,90,170\n");
@@ -217,6 +276,24 @@ TEST_F(SHealthBMITest, CalculateBmi_HeaderOnly_ReturnsZero) {
     writeCsv("");
     SHealth shealth;
     EXPECT_EQ(shealth.calculateBmi(tempCsvPath_), 0);
+}
+
+TEST_F(SHealthBMITest, Refactor_CalculateBmi_StillPassesIntegration) {
+    // Given: 소량 통합 fixture — 로드·체중/키 보정·BMI·연령대 집계 파이프라인 회귀
+    writeCsv("1,25,50,170\n2,26,60,170\n3,27,70,170\n4,28,90,170\n"
+             "5,35,0,170\n6,37,80,170\n7,25,0,165\n8,27,60,165\n");
+    SHealth shealth;
+    // When
+    const int count = shealth.calculateBmi(tempCsvPath_);
+    // Then: 8건 처리, 20대 4분류 합≈100%, 30대 보정·집계 정상
+    EXPECT_EQ(count, 8);
+    const double sum20 = shealth.getBmiRatio(20, 100) + shealth.getBmiRatio(20, 200) +
+                         shealth.getBmiRatio(20, 300) + shealth.getBmiRatio(20, 400);
+    EXPECT_NEAR(sum20, 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(30, 400), 100.0, 0.01);
+    const double sum30 = shealth.getBmiRatio(30, 100) + shealth.getBmiRatio(30, 200) +
+                         shealth.getBmiRatio(30, 300) + shealth.getBmiRatio(30, 400);
+    EXPECT_NEAR(sum30, 100.0, 0.01);
 }
 
 TEST_F(SHealthBMITest, CalculateBmi_EmptyLine_StopsOrSkips) {
