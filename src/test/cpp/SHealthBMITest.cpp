@@ -211,6 +211,26 @@ TEST_F(SHealthBMITest, GetNormalBmiUsers_Mixed_ReturnsOnlyNormalIds) {
     EXPECT_EQ(normalIds[0], 2);
 }
 
+TEST_F(SHealthBMITest, GetOverallBmiRatio_AllObese_Returns100PercentObesity) {
+    // Given: 연령대 무관 전원 비만 (BMI ≥ 25)
+    writeCsv("1,25,90,170\n2,35,90,170\n3,45,90,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(400), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(100), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, GetOverallBmiRatio_FourTypes_Each25Percent) {
+    // Given: 전체 4분류 각 1명(연령 혼합)
+    writeCsv("1,25,50,170\n2,35,60,170\n3,45,70,170\n4,55,90,170\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(100), 25.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(200), 25.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(300), 25.0, 0.01);
+    EXPECT_NEAR(shealth.getOverallBmiRatio(400), 25.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, GetBmiRatio_20Underweight_MatchesAggregatedPercent) {
     // Given: 20대 2명 모두 저체중 (BMI ≤ 18.5)
     writeCsv("1,25,50,170\n2,26,52,170\n");

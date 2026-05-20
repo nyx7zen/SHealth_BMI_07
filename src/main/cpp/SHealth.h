@@ -12,6 +12,8 @@ public:
     double getBmiRatio(int ageClass, int type);
     /** 18.5 < BMI < 23 정상 범위 사용자 id 목록 (`calculateBmi` 실행 후 조회) */
     std::vector<int> getNormalBmiUserIds() const;
+    /** 연령대 무관 전체 사용자 BMI 4분류(100~400) 비율(%) — `overallBmiRatios_` 조회 */
+    double getOverallBmiRatio(int type) const;
 
 private:
     static constexpr double kBmiUnderweightMax = 18.5;
@@ -50,6 +52,7 @@ private:
     double weights_[kMaxRecordCount];
     double bmis_[kMaxRecordCount];
     std::array<std::array<double, kBmiCategoryCount>, kAgeBandCount> bmiRatios_{};
+    std::array<double, kBmiCategoryCount> overallBmiRatios_{};
 
     BmiCategory classifyBmi(double bmi) const;
     static bool isInAgeBand(int age, AgeBand band);
@@ -68,6 +71,7 @@ private:
     void imputeMissingHeightsByAgeBand();
     void computeAllBmis();
     void aggregateRatiosByAgeBand();
+    void aggregateOverallRatios();
 
     std::vector<std::string> split(const std::string& line, char delimiter);
 };
