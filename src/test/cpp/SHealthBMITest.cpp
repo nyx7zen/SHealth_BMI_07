@@ -181,6 +181,26 @@ TEST_F(SHealthBMITest, ImputeWeight_NoZero_UnchangedWeights) {
     EXPECT_NEAR(shealth.getBmiRatio(20, 300), 50.0, 0.01);
 }
 
+TEST_F(SHealthBMITest, ImputeHeight_ZeroInBand_UsesAverageHeight) {
+    // Given: 20대 height 0 1건 + 유효 170cm 2건 → 평균 170cm 보정
+    writeCsv("1,25,70,170\n2,26,70,170\n3,27,70,0\n");
+    SHealth shealth;
+    shealth.calculateBmi(tempCsvPath_);
+    // Then: 보정 후 3명 모두 BMI≈24.22(70kg/170cm) → 20대 과체중(300) 100%
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 100.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 100), 0.0, 0.01);
+}
+
+TEST_F(SHealthBMITest, CalculateBmi_HeightZeroBeforeImpute_DivisionRisk) {
+    // Given: height=0 1건 + 동 연령대 유효 키 — 파이프라인에서 height 보정 후 BMI 계산
+    writeCsv("1,25,70,0\n2,26,60,170\n");
+    SHealth shealth;
+    // When / Then: 나눗셈 위험 없이 완료, 20대 과체중·정상 각 50%
+    EXPECT_EQ(shealth.calculateBmi(tempCsvPath_), 2);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 300), 50.0, 0.01);
+    EXPECT_NEAR(shealth.getBmiRatio(20, 200), 50.0, 0.01);
+}
+
 TEST_F(SHealthBMITest, GetBmiRatio_20Underweight_MatchesAggregatedPercent) {
     // Given: 20대 2명 모두 저체중 (BMI ≤ 18.5)
     writeCsv("1,25,50,170\n2,26,52,170\n");

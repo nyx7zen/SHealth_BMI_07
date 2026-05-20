@@ -61,6 +61,7 @@ private:
 
     void loadRecordsFromCsv(const std::string& filename);
     void imputeMissingWeightsByAgeBand();
+    /** height==0 → 동 연령대 유효 키(cm) 평균 대입 (weight 보정 직후, BMI 계산 전) */
     void imputeMissingHeightsByAgeBand();
     void computeAllBmis();
     void aggregateRatiosByAgeBand();
